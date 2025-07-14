@@ -18,7 +18,7 @@ TEST_CONFIG = Config(
     request_count=1,
     parallel_threads_count=1,
     # It's for generate random postbacks
-    source_ids=["100", "101", "102"],
+    source_ids=["100"],
     postback_types=["install", "event"],
     event_names=["registration", "level", "purchase"],
     mmp=["appmetrica", "appsflyer"],
