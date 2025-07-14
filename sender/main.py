@@ -162,11 +162,20 @@ class PostbackTester:
         await self.save_request(params)
         success, latency = await self._send_request(client, params)
 
-        if success:
+        is_verified = await self._check_verify(params["request_id"])
+
+        if success and is_verified:
             stats["success"] += 1
         else:
             stats["failure"] += 1
         stats["latencies"].append(latency)
+
+    async def _check_verify(self, request_id: str) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT 1 FROM received_requests WHERE request_id = ?", (request_id,)
+            )
+            return cursor.fetchone() is not None
 
     def _save_results(self, test_id: str, duration: float, stats: dict):
         success_rate = (stats["success"] / self.config.request_count) * 100
