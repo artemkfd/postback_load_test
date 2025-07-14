@@ -5,16 +5,17 @@ from pathlib import Path
 from postback_load_test.pydantic_models import Config
 
 logger = logging.getLogger(__name__)
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 ENV_FILE = BASE_DIR / ".env"
 dotenv.load_dotenv(ENV_FILE)
 
 TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001/verify")
 
+
 TEST_CONFIG = Config(
     target_url=TARGET_URL,
     db_name="requests.db",
-    request_count=10,
+    request_count=1,
     parallel_threads_count=1,
     # It's for generate random postbacks
     source_ids=["100", "101", "102"],
