@@ -13,9 +13,9 @@ async def main():
     args = parse_args()
     config = TEST_CONFIG.model_copy(
         update={
-            "request_count": args.requests,
-            "parallel_threads_count": args.threads,
-            "max_requests_per_second": args.rps,
+            "request_count": args.requests or 1,
+            "parallel_threads_count": args.threads or 1,
+            "max_requests_per_second": args.rps or 1,
             "max_duration_minutes": args.duration,
             "target_url": args.target,
         }

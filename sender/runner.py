@@ -77,10 +77,6 @@ class TestRunner:
             asyncio.create_task(self._worker(client, queue, stats, semaphore))
             for _ in range(min(self.config.parallel_threads_count, self.config.request_count))
         ]
-        progress = Progress()
-        progress_task = progress.add_task(
-            "[cyan]Sending requests...", total=self.config.request_count
-        )
 
         try:
             for _ in range(self.config.request_count):
@@ -204,8 +200,8 @@ class TestRunner:
     async def _save_and_report_results(self, test_id: str, stats: TestStats, metrics: TestMetrics):
         duration = time.monotonic() - self.start_time
 
-        await asyncio.sleep(2)
-        max_retries = 3
+        await asyncio.sleep(5)
+        max_retries = 20
         retry_delay = 1
 
         for attempt in range(max_retries):
