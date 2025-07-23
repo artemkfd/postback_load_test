@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+import uuid
 from config import parse_args, TEST_CONFIG
 from database import DatabaseManager
 from requester import RequestSender
@@ -13,9 +14,10 @@ async def main():
     args = parse_args()
     config = TEST_CONFIG.model_copy(
         update={
+            "test_id": args.test_id or str(uuid.uuid4()),
             "request_count": args.requests or 1,
             "parallel_threads_count": args.threads or 1,
-            "max_requests_per_second": args.rps or 1,
+            "max_requests_per_second": args.rps or 1_000_000,
             "max_duration_minutes": args.duration,
             "target_url": args.target,
         }
@@ -27,6 +29,7 @@ async def main():
 
     runner = TestRunner(config, db_manager, request_sender, reporter)
     await runner.run_test()
+    print("Test_id",config.test_id)
 
 
 if __name__ == "__main__":

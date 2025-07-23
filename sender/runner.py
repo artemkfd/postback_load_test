@@ -1,4 +1,5 @@
 import asyncio
+from logging import config
 import random
 import uuid
 import time
@@ -45,7 +46,7 @@ class TestRunner:
         }
 
     async def run_test(self):
-        test_id = str(uuid.uuid4())
+        test_id = self.config.test_id
         self.start_time = time.monotonic()
         stats = TestStats(
             verified_success=0, unverified_success=0, failed=0, latencies=[], sent_count=0
@@ -69,13 +70,13 @@ class TestRunner:
             await self._handle_interruption(test_id, stats)
 
     async def _execute_test(self, client: httpx.AsyncClient, test_id: str, stats: TestStats):
-        queue = asyncio.Queue(maxsize=self.config.max_requests_per_second or 100)
+        queue = asyncio.Queue(maxsize=self.config.max_requests_per_second or 1000)
         semaphore = asyncio.Semaphore(self.config.max_requests_per_second or 100)
         test_end_time = self.start_time + self.config.max_duration_minutes * 60
 
         workers = [
             asyncio.create_task(self._worker(client, queue, stats, semaphore))
-            for _ in range(min(self.config.parallel_threads_count, self.config.request_count))
+            for _ in range(max(self.config.parallel_threads_count, self.config.request_count))
         ]
 
         try:

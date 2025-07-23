@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class TestConfig(BaseModel):
+    test_id:str | None = None
     request_count: int
     parallel_threads_count: int
     max_requests_per_second: int
