@@ -6,12 +6,20 @@ from rich.table import Table
 from rich import box
 
 DB_PATH = 'requests.db'
+
+def get_last_test_id()->str:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.execute("""SELECT test_id FROM sending_requests
+        ORDER BY created_at DESC
+        LIMIT 1;""")
+        test_id = cursor.fetchone()[0]
+        return test_id or ""
 def parse_args():
     parser = argparse.ArgumentParser(description="Postback Load Tester")
     parser.add_argument(
         "--test_id",
         type=str,
-        default='test_1',
+        default=get_last_test_id() or 'test_1',
         help="Test ID for get data from DB",
     )
     return parser.parse_args()
@@ -60,8 +68,12 @@ def print_basic_stat(data: dict):
 def main():
     args = parse_args()
     received_count,sent_count = verify_requests(args.test_id)
-    success_rate = round((received_count / sent_count) * 100)
-    error_rate = 100 - success_rate
+    if sent_count > 0:
+        success_rate = round((received_count / sent_count) * 100)
+        error_rate = 100 - success_rate
+    else:
+        success_rate = 0
+        error_rate = 100
     data = {"test_id":args.test_id,"sent":sent_count,"received":received_count,"errors":error_rate,"success":success_rate}
     print_basic_stat(data)
 
