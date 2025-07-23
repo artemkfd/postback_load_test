@@ -69,7 +69,29 @@ class TestReporter:
         main_table.add_row("95-й перцентиль", f"{metrics['p95']:.4f}")
         main_table.add_row("99-й перцентиль", f"{metrics['p99']:.4f}")
 
+
         self.console.print(main_table)
+
+        config_table = Table(
+            title=f"Конфигурация теста",
+            box=box.ROUNDED,
+            title_style="bold cyan",
+            header_style="bold magenta",
+        )
+        config_table.add_column("Параметр", style="cyan", justify="right")
+        config_table.add_column("Значение", style="green", justify="left")
+
+        config_table.add_row("requests_count", str(self.config.request_count))
+        config_table.add_row("parallel_threads_count", str(self.config.parallel_threads_count))
+        config_table.add_row("source_ids", str( self.config.source_ids))
+        config_table.add_row("postback_types", str(self.config.postback_types))
+        config_table.add_row("event_names", str( self.config.event_names))
+        config_table.add_row("mmp", str(self.config.mmp))
+        config_table.add_row("max_duration_minutes", str(self.config.max_duration_minutes))
+        config_table.add_row("max_requests_per_second", str(self.config.max_requests_per_second))
+
+        self.console.print(config_table)
+
 
     def print_history_comparison(self, history: list[dict]):
         if not history:
