@@ -1,4 +1,5 @@
 import asyncio
+import multiprocessing
 from pathlib import Path
 import uuid
 from config import parse_args, TEST_CONFIG
@@ -29,8 +30,19 @@ async def main():
 
     runner = TestRunner(config, db_manager, request_sender, reporter)
     await runner.run_test()
+
     print("Test_id",config.test_id)
 
 
+# async def run_test_instance():
+#     await main()
 if __name__ == "__main__":
     asyncio.run(main())
+    # processes = []
+    # for i in range(4):  # 4 параллельных процесса
+    #     p = multiprocessing.Process(target=asyncio.run, args=(run_test_instance(),))
+    #     p.start()
+    #     processes.append(p)
+
+    # for p in processes:
+    #     p.join()

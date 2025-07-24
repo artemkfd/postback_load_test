@@ -17,6 +17,7 @@ class DatabaseManager:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA journal_mode = WAL")
             conn.execute("PRAGMA synchronous = NORMAL")
+            conn.execute("PRAGMA cache_size=-10000")
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS sending_requests (
@@ -75,7 +76,6 @@ class DatabaseManager:
 
                 CREATE INDEX IF NOT EXISTS idx_sending_test ON sending_requests(test_id, request_id);
                 CREATE INDEX IF NOT EXISTS idx_received_test ON received_requests(test_id, request_id);
-                PRAGMA cache_size = -10000;
                 """
             )
 
@@ -113,7 +113,7 @@ class DatabaseManager:
         with sqlite3.connect(self.db_path) as conn:
             conn.executemany(
                 """
-                INSERT INTO sending_requests
+                INSERT OR IGNORE INTO sending_requests
                 (request_id, test_id, postback_type, event_name, source_id,
                  campaign_id, placement_id, adset_id, ad_id, advertising_id,
                  country, click_id, mmp)
@@ -130,10 +130,16 @@ class DatabaseManager:
                 )
                 sent_count = cursor.fetchone()[0]
 
-                cursor = conn.execute(
-                    "SELECT COUNT(*) FROM received_requests WHERE test_id = ?", (test_id,)
-                )
-                received_count = cursor.fetchone()[0]
+                # cursor = conn.execute(
+                #     "SELECT COUNT(*) FROM received_requests WHERE test_id = ?", (test_id,)
+                # )
+                # received_count = cursor.fetchone()[0]
+                received_count = conn.execute(
+                    """SELECT COUNT(*) FROM sending_requests s
+                    JOIN received_requests r ON s.request_id = r.request_id
+                    WHERE s.test_id = ?""",
+                    (test_id,)
+                ).fetchone()[0]
 
                 return received_count, sent_count - received_count
 
@@ -195,7 +201,7 @@ class DatabaseManager:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     """
-                    INSERT INTO metrics
+                    INSERT OR IGNORE INTO metrics
                     (test_id, test_datetime, duration, sending_count,
                      verified_success, unverified_success, failed,
                      verified_rate, avg_latency, min_latency, max_latency, p90, p95, p99, rps)

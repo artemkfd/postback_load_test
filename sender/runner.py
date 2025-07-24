@@ -1,11 +1,9 @@
 import asyncio
-from logging import config
 import random
 import uuid
 import time
 import logging
 from dataclasses import dataclass
-from rich.progress import Progress
 import httpx
 
 from database import DatabaseManager
@@ -47,47 +45,49 @@ class TestRunner:
 
     async def run_test(self):
         test_id = self.config.test_id
-        self.start_time = time.monotonic()
+        self.start_time = time.perf_counter()
         stats = TestStats(
             verified_success=0, unverified_success=0, failed=0, latencies=[], sent_count=0
         )
+        all_requests = [self._generate_postback(test_id) for _ in range(self.config.request_count)]
 
         try:
             async with self.request_sender.get_client() as client:
                 try:
                     await asyncio.wait_for(
-                        self._execute_test(client, test_id, stats),
+                        self._execute_test(client, all_requests, stats),
                         timeout=self.config.max_duration_minutes * 60,
                     )
                 except asyncio.TimeoutError:
                     logger.info("Test stopped due to duration limit")
 
-            duration = time.monotonic() - self.start_time
+            duration = time.perf_counter() - self.start_time
+
             metrics = self._calculate_metrics(stats, duration)
             await self._save_and_report_results(test_id, stats, metrics)
 
         except asyncio.CancelledError:
             await self._handle_interruption(test_id, stats)
 
-    async def _execute_test(self, client: httpx.AsyncClient, test_id: str, stats: TestStats):
-        queue = asyncio.Queue(maxsize=self.config.max_requests_per_second or 1000)
-        semaphore = asyncio.Semaphore(self.config.max_requests_per_second or 100)
+    async def _execute_test(self, client: httpx.AsyncClient, all_requests: list, stats: TestStats):
+        queue = asyncio.Queue(maxsize=self.config.max_requests_per_second or 5000)
+        semaphore = asyncio.Semaphore(self.config.max_requests_per_second or 500)
         test_end_time = self.start_time + self.config.max_duration_minutes * 60
+        worker_count=100
 
         workers = [
             asyncio.create_task(self._worker(client, queue, stats, semaphore))
-            for _ in range(max(self.config.parallel_threads_count, self.config.request_count))
+            for _ in range(worker_count)
         ]
 
         try:
-            for _ in range(self.config.request_count):
-                if time.monotonic() > test_end_time:
+            for postback in all_requests:
+                if time.perf_counter() > test_end_time:
                     logger.info("Duration limit reached, stopping test")
                     break
 
                 await semaphore.acquire()
-                params = self._generate_postback(test_id)
-                await queue.put(params)
+                await queue.put(postback)
                 stats.sent_count += 1
 
             await queue.join()
@@ -119,9 +119,9 @@ class TestRunner:
         test_end_time = self.start_time + self.config.max_duration_minutes * 60
         current_task = None
 
-        while time.monotonic() < test_end_time:
+        while time.perf_counter() < test_end_time:
             try:
-                current_time = time.monotonic()
+                current_time = time.perf_counter()
                 elapsed = current_time - last_request_time
                 if elapsed < min_interval:
                     await asyncio.sleep(min_interval - elapsed)
@@ -131,11 +131,11 @@ class TestRunner:
                     params = await asyncio.wait_for(current_task, timeout=0.5)
                     current_task = None
 
-                    last_request_time = time.monotonic()
+                    last_request_time = time.perf_counter()
                     await self._process_request(client=client, params=params, stats=stats)
 
                 except asyncio.TimeoutError:
-                    if time.monotonic() >= test_end_time:
+                    if time.perf_counter() >= test_end_time:
                         break
                     continue
                 except Exception as e:
@@ -199,7 +199,7 @@ class TestRunner:
         )
 
     async def _save_and_report_results(self, test_id: str, stats: TestStats, metrics: TestMetrics):
-        duration = time.monotonic() - self.start_time
+        duration = time.perf_counter() - self.start_time
 
         await asyncio.sleep(5)
         max_retries = 20
@@ -243,7 +243,7 @@ class TestRunner:
         self.reporter.print_history_comparison(history)
 
     async def _handle_interruption(self, test_id: str, stats: TestStats):
-        duration = time.monotonic() - self.start_time
+        duration = time.perf_counter() - self.start_time
         metrics = self._calculate_metrics(stats, duration)
 
         try:

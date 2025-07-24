@@ -31,10 +31,12 @@ def verify_requests(test_id:str)->tuple[int,int]:
         )
         sent_count = cursor.fetchone()[0]
 
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM received_requests WHERE test_id = ?", (test_id,)
-        )
-        received_count = cursor.fetchone()[0]
+        received_count = conn.execute(
+                """SELECT COUNT(*) FROM sending_requests s
+                JOIN received_requests r ON s.request_id = r.request_id
+                WHERE s.test_id = ?""",
+                (test_id,)
+            ).fetchone()[0]
 
         return received_count, sent_count
 

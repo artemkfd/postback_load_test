@@ -14,6 +14,7 @@ print("env_file", ENV_FILE),
 TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001/verify")
 
 
+
 TEST_CONFIG = Config(
     test_id=None,
     target_url=TARGET_URL,
@@ -27,7 +28,7 @@ TEST_CONFIG = Config(
     mmp=["appmetrica", "appsflyer"],
     # It's optional for limitation
     max_duration_minutes=60,
-    max_requests_per_second=50,
+    max_requests_per_second=50
 )
 logger.info({"event_log": "config", "massage": "Main config load success"})
 

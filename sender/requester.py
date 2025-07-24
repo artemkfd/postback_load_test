@@ -1,4 +1,5 @@
 import logging
+from sqlite3 import connect
 import httpx
 import time
 from typing import Any
@@ -22,12 +23,14 @@ class RequestSender:
 
     @asynccontextmanager
     async def get_client(self):
+        timeout = httpx.Timeout(10.0, connect=5.0)  # More reasonable timeouts
+        limits = httpx.Limits(
+            max_connections=500,
+            max_keepalive_connections=250
+        )
         async with httpx.AsyncClient(
-            timeout=httpx.Timeout(30.0),
-            limits=httpx.Limits(
-                max_connections=self.config.max_requests_per_second or 1000,
-                max_keepalive_connections=500,
-            ),
+            timeout=timeout,
+            limits=limits,
             http2=True,
         ) as client:
             yield client
@@ -36,11 +39,11 @@ class RequestSender:
         self, client: httpx.AsyncClient, params: dict[str, Any]
     ) -> tuple[bool, float]:
         await self.rate_limiter.wait()
-        start = time.monotonic()
+        start = time.perf_counter()
         try:
             response = await client.get(self.config.target_url, params=params)
             response.raise_for_status()
-            return True, time.monotonic() - start
+            return True, time.perf_counter() - start
         except Exception as e:
             logger.error(
                 {
@@ -50,7 +53,7 @@ class RequestSender:
                     "params": params,
                 }
             )
-            return False, time.monotonic() - start
+            return False, time.perf_counter() - start
 
     async def __aenter__(self):
         limits = httpx.Limits(
