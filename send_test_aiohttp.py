@@ -34,6 +34,8 @@ else:
 def init_metrics_db():
     """Инициализация базы данных для метрик"""
     with sqlite3.connect(METRICS_DB_PATH) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")  # Режим журналирования
+        conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS metrics (
                 test_id TEXT PRIMARY KEY,
@@ -52,6 +54,8 @@ def init_metrics_db():
         conn.commit()
 
     with sqlite3.connect(REQUESTS_DB_PATH) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")  # Режим журналирования
+        conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS received_requests (
                 request_id TEXT PRIMARY KEY,
@@ -363,8 +367,8 @@ def main():
 
     asyncio.run(async_start(test_id=test_id,postbacks=postbacks,connection_limit=TEST_CONFIG["connection_limit"],batch_size=TEST_CONFIG["batch_size"]))
     with httpx.Client() as client:
-        client.get("{FLUSH_URL}")
-    time.sleep(1)
+        client.get(f"{FLUSH_URL}")
+    time.sleep(3)
     received = check_received_postbacks(test_id)
     print("received",received)
     verified_count = 0
