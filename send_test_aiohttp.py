@@ -119,8 +119,8 @@ def generate_postback(test_id: str) -> dict:
     return {
         "request_id": str(uuid.uuid4()),
         "test_id": test_id,
-        "postback_type": "click",
-        "event_name": "purchase",
+        "postback_type": "install",
+        "event_name": "registration",
         "source_id": TEST_CONFIG.get("source_id"),
         "campaign_id": str(uuid.uuid4()),
         "placement_id": str(uuid.uuid4()),
