@@ -41,6 +41,24 @@ class Database:
         await self._pool.execute("PRAGMA cache_size=-10000")
         await self._pool.execute("PRAGMA temp_store=MEMORY")
         await self._pool.execute("PRAGMA mmap_size=268435456")
+        await self._pool.execute("""CREATE TABLE IF NOT EXISTS received_requests (
+                    request_id TEXT PRIMARY KEY,
+                    test_id TEXT,
+                    postback_type TEXT,
+                    event_name TEXT,
+                    source_id TEXT,
+                    campaign_id TEXT,
+                    placement_id TEXT,
+                    adset_id TEXT,
+                    ad_id TEXT,
+                    advertising_id TEXT,
+                    country TEXT,
+                    click_id TEXT,
+                    mmp TEXT,
+                    gaid TEXT,
+                    idfa TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );""")
         await self._pool.commit()
 
     async def save_request(self, data: dict):
@@ -122,5 +140,8 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8001,
-        workers=1
+        workers=1,
+        # loop="uvloop",
+        # http="h11",
+        # limit_concurrency=5000
     )
