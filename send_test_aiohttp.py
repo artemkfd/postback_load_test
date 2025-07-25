@@ -11,6 +11,7 @@ import random
 import uvloop
 import aiohttp
 from dotenv import load_dotenv
+import httpx
 
 uvloop.install()
 BASE_DIR = Path(__file__).resolve().parent
@@ -24,6 +25,11 @@ TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001")
 logger = logging.getLogger(__name__)
 TEST_CONFIG ={"test_id":"test_id","request_count":1,"target_url":TARGET_URL,"source_id":"100","connection_limit":200,"butch":400,"timeout":None}
 METRICS_DB_PATH = "metrics.db"
+REQUESTS_DB_PATH = "requests.db"
+if TARGET_URL == "http://127.0.0.1:8001":
+    FLUSH_URL = f"{TARGET_URL}/flush"
+else:
+    FLUSH_URL = f"http://139.59.26.67:8001/flush"
 
 def init_metrics_db():
     """Инициализация базы данных для метрик"""
@@ -41,6 +47,27 @@ def init_metrics_db():
                 rps REAL NOT NULL,
                 received_count INTEGER,
                 verified_count INTEGER
+            )
+        """)
+        conn.commit()
+
+    with sqlite3.connect(REQUESTS_DB_PATH) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS received_requests (
+                request_id TEXT PRIMARY KEY,
+                test_id TEXT,
+                postback_type TEXT,
+                event_name TEXT,
+                source_id TEXT,
+                campaign_id TEXT,
+                placement_id TEXT,
+                adset_id TEXT,
+                ad_id TEXT,
+                advertising_id TEXT,
+                country TEXT,
+                click_id TEXT,
+                mmp TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
         conn.commit()
@@ -231,7 +258,7 @@ def check_received_postbacks(test_id:str,db_path:str="requests.db"):
                 ).fetchone()[0]
         return received_count
 
-def check_data_consistent(postbacks:list[dict],test_id:str,db_path:str="requests.db"):
+def check_data_consistency(postbacks:list[dict],test_id:str,db_path:str="requests.db"):
     with sqlite3.connect(db_path) as conn:
         conn.execute("""
                 CREATE TABLE IF NOT EXISTS sending_requests (
@@ -250,6 +277,7 @@ def check_data_consistent(postbacks:list[dict],test_id:str,db_path:str="requests
                     mmp TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 );""")
+        conn.commit()
 
         for postback in postbacks:
             values = [value for value in postback.values()]
@@ -263,6 +291,7 @@ def check_data_consistent(postbacks:list[dict],test_id:str,db_path:str="requests
                 """,
                 values,
             )
+            conn.commit()
         verified_received_count = conn.execute(
                 """SELECT COUNT(*) FROM sending_requests s
                 JOIN received_requests r ON s.request_id = r.request_id
@@ -325,7 +354,7 @@ def main():
     TEST_CONFIG["source_id"] = args.source_id or "100"
     TEST_CONFIG["connection_limit"] = args.connection_limit or 200
     TEST_CONFIG["batch_size"] = args.batch_size or 400
-    TEST_CONFIG["timeout"] = args.timeout or 0.5
+    TEST_CONFIG["timeout"] = args.timeout
     init_metrics_db()
 
     postback_count=TEST_CONFIG.get("requests")
@@ -333,14 +362,17 @@ def main():
     postbacks = postback_preparation(postback_count=postback_count,test_id=test_id)
 
     asyncio.run(async_start(test_id=test_id,postbacks=postbacks,connection_limit=TEST_CONFIG["connection_limit"],batch_size=TEST_CONFIG["batch_size"]))
-
+    with httpx.Client() as client:
+        client.get("{FLUSH_URL}")
+    time.sleep(1)
     received = check_received_postbacks(test_id)
     print("received",received)
+    verified_count = 0
     if postback_count == received:
-        verified_count = check_data_consistent(postbacks=postbacks,test_id=test_id)
+        verified_count = check_data_consistency(postbacks=postbacks,test_id=test_id)
         print("verified_count",verified_count)
 
-        update_metric(received=received,verified_count=verified_count,test_id=test_id)
+    update_metric(received=received,verified_count=verified_count,test_id=test_id)
 
     metrics_history = get_last_metrics(10)
     print_metrics_history(metrics_history)
