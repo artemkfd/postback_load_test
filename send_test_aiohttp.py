@@ -313,7 +313,7 @@ def parse_args():
     parser.add_argument(
         "--timeout",
         type=int,
-        default=0.5,
+        default=5.0,
     )
     return parser.parse_args()
 
