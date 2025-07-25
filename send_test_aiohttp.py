@@ -22,7 +22,7 @@ TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001")
 # TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001/verify")
 
 logger = logging.getLogger(__name__)
-TEST_CONFIG ={"test_id":"test_id","request_count":1,"target_url":TARGET_URL,"source_id":"100","connection_limit":200,"butch":400}
+TEST_CONFIG ={"test_id":"test_id","request_count":1,"target_url":TARGET_URL,"source_id":"100","connection_limit":200,"butch":400,"timeout":None}
 METRICS_DB_PATH = "metrics.db"
 
 def init_metrics_db():
@@ -138,11 +138,12 @@ def generate_all_postbacks(test_id: str, count: int = 100000) -> list[dict]:
 
 async def send_postback(postback: dict, session: aiohttp.ClientSession) -> bool:
     """Асинхронно отправляет один postback через aiohttp."""
+    timeout = TEST_CONFIG.get("timeout","5.0")
     try:
         async with session.get(
             TEST_CONFIG.get("target_url"),
             params=postback,
-            timeout=aiohttp.ClientTimeout(total=5.0)
+            timeout=aiohttp.ClientTimeout(total=timeout)
         ) as response:
             response.raise_for_status()
             return True
@@ -309,6 +310,11 @@ def parse_args():
         type=int,
         default=None,
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=0.5,
+    )
     return parser.parse_args()
 
 
@@ -319,6 +325,7 @@ def main():
     TEST_CONFIG["source_id"] = args.source_id or "100"
     TEST_CONFIG["connection_limit"] = args.connection_limit or 200
     TEST_CONFIG["batch_size"] = args.batch_size or 400
+    TEST_CONFIG["timeout"] = args.timeout or 0.5
     init_metrics_db()
 
     postback_count=TEST_CONFIG.get("requests")
