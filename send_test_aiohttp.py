@@ -1,16 +1,26 @@
+import argparse
 import asyncio
 from datetime import datetime
 import logging
+import os
+from pathlib import Path
 import sqlite3
 import time
 import uuid
 import random
 import uvloop
 import aiohttp
+from dotenv import load_dotenv
 
 uvloop.install()
-logger = logging.getLogger(__name__)
+BASE_DIR = Path(__file__).resolve().parent
+ENV_FILE = BASE_DIR / ".env"
+load_dotenv(ENV_FILE)
 
+TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001/verify")
+
+logger = logging.getLogger(__name__)
+TEST_CONFIG ={"test_id":"test_id","request_count":1,"target_url":"http://127.0.0.1:8001/verify","source_id":"100"}
 METRICS_DB_PATH = "metrics.db"
 
 def init_metrics_db():
@@ -109,7 +119,7 @@ def generate_postback(test_id: str) -> dict:
         "test_id": test_id,
         "postback_type": "click",
         "event_name": "purchase",
-        "source_id": "facebook",
+        "source_id": TEST_CONFIG.get("source_id"),
         "campaign_id": str(uuid.uuid4()),
         "placement_id": str(uuid.uuid4()),
         "adset_id": random.choice(["123456", "654321"]),
@@ -269,11 +279,33 @@ def update_metric(received:int,verified_count:int,test_id:str):
                 (received, verified_count, test_id)
             )
             conn.commit()
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Postback Load Tester")
+    parser.add_argument(
+        "--test_id",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--requests",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--source_id",
+        type=int,
+        default=None,
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     init_metrics_db()
 
-    postback_count=100_00
-    test_id = str(uuid.uuid4())
+    postback_count=args.requests or 10
+    test_id = args.test_id or str(uuid.uuid4())
     postbacks = postback_preparation(postback_count=postback_count,test_id=test_id)
 
     asyncio.run(async_start(test_id=test_id,postbacks=postbacks,connection_limit=200,batch_size=400))
