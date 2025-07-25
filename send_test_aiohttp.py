@@ -366,9 +366,10 @@ def main():
     postbacks = postback_preparation(postback_count=postback_count,test_id=test_id)
 
     asyncio.run(async_start(test_id=test_id,postbacks=postbacks,connection_limit=TEST_CONFIG["connection_limit"],batch_size=TEST_CONFIG["batch_size"]))
+    time.sleep(3)
     with httpx.Client() as client:
         client.get(f"{FLUSH_URL}")
-    time.sleep(3)
+    time.sleep(1)
     received = check_received_postbacks(test_id)
     print("received",received)
     verified_count = 0
