@@ -14,13 +14,15 @@ from dotenv import load_dotenv
 
 uvloop.install()
 BASE_DIR = Path(__file__).resolve().parent
+print("BASE_DIR",BASE_DIR)
 ENV_FILE = BASE_DIR / ".env"
 load_dotenv(ENV_FILE)
 
-TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001/verify")
+TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001")
+# TARGET_URL = os.environ.get("TARGET_URL", "http://127.0.0.1:8001/verify")
 
 logger = logging.getLogger(__name__)
-TEST_CONFIG ={"test_id":"test_id","request_count":1,"target_url":"http://127.0.0.1:8001/verify","source_id":"100"}
+TEST_CONFIG ={"test_id":"test_id","request_count":1,"target_url":TARGET_URL,"source_id":"100","connection_limit":200,"butch":400}
 METRICS_DB_PATH = "metrics.db"
 
 def init_metrics_db():
@@ -138,7 +140,7 @@ async def send_postback(postback: dict, session: aiohttp.ClientSession) -> bool:
     """Асинхронно отправляет один postback через aiohttp."""
     try:
         async with session.get(
-            "http://127.0.0.1:8001/verify",
+            TEST_CONFIG.get("target_url"),
             params=postback,
             timeout=aiohttp.ClientTimeout(total=5.0)
         ) as response:
@@ -297,18 +299,33 @@ def parse_args():
         type=int,
         default=None,
     )
+    parser.add_argument(
+        "--connection_limit",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=None,
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    TEST_CONFIG["test_id"] = args.test_id or str(uuid.uuid4())
+    TEST_CONFIG["requests"] = args.requests or 10
+    TEST_CONFIG["source_id"] = args.source_id or "100"
+    TEST_CONFIG["connection_limit"] = args.connection_limit or 200
+    TEST_CONFIG["batch_size"] = args.batch_size or 400
     init_metrics_db()
 
-    postback_count=args.requests or 10
-    test_id = args.test_id or str(uuid.uuid4())
+    postback_count=TEST_CONFIG.get("requests")
+    test_id = TEST_CONFIG["test_id"]
     postbacks = postback_preparation(postback_count=postback_count,test_id=test_id)
 
-    asyncio.run(async_start(test_id=test_id,postbacks=postbacks,connection_limit=200,batch_size=400))
+    asyncio.run(async_start(test_id=test_id,postbacks=postbacks,connection_limit=TEST_CONFIG["connection_limit"],batch_size=TEST_CONFIG["batch_size"]))
 
     received = check_received_postbacks(test_id)
     print("received",received)
